@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+}
+
+group = 'org.cb2384.mcimageformatter'
+version = '0.3alpha'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+
+    //https://mvnrepository.com/artifact/org.checkerframework/checker-qual
+    implementation group: 'org.checkerframework', name: 'checker-qual', version: '3.42.0'
+
+    // https://mvnrepository.com/artifact/org.imgscalr/imgscalr-lib
+    implementation group: 'org.imgscalr', name: 'imgscalr-lib', version: '4.2'
+
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
+    implementation group: 'org.slf4j', name: 'slf4j-api', version: '2.0.12'
+}
+
+test {
+    useJUnitPlatform()
+}
