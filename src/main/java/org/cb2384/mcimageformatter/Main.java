@@ -129,8 +129,11 @@ public class Main {
         //if (!checkAllPoints(imageCells.seeCells())) {logger.atError().log("CELL FAILURE"); return;}
         
         String outPath = ofNullable(usedArgs[1]).orElse( System.getProperty("user.home") );
-        try(BufferedWriter bf = prepareFile(outPath)) {
-            bf.write(imageCells.export(lightLevel));
+        try(BufferedWriter bw = prepareFile(outPath)) {
+            for (String s : imageCells.export(lightLevel)) {
+                bw.write(s);
+                bw.newLine();
+            }
         } catch (IOException IOE) {
             //logger.atError().setCause(IOE).log();
             throw new RuntimeException();

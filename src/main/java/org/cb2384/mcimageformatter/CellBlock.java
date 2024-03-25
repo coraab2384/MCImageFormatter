@@ -4,6 +4,7 @@ import static java.util.Arrays.asList;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
+import java.util.List;
 import java.util.NavigableSet;
 
 /**
@@ -15,8 +16,6 @@ import java.util.NavigableSet;
 public class CellBlock {
     
     private static final int CELL_SLICE_SIZE = Util.CELL_SIZE;
-    
-    private static final int CELL_SLICE_SIZE_MINUS_ONE = CELL_SLICE_SIZE - 1;
     
     private final BufferedImage image;
     
@@ -101,14 +100,12 @@ public class CellBlock {
      * @return a String for which each line is the output of
      *         {@link Cell#export(int)} for each contained Cell, with the given lightLevel.
      */
-    public String export(
+    public List<String> export(
             int lightLevel
     ) {
-        StringBuilder resBuild = new StringBuilder();
-        for (Cell cell : cellSet) {
-            resBuild.append( cell.export(lightLevel) ).append("\r\n");
-        }
-        return resBuild.substring(0, resBuild.length() - 1);
+        return cellSet.stream()
+                .map(c -> c.export(lightLevel))
+                .toList();
     }
     
 }
