@@ -175,7 +175,7 @@ public class Shape
             return null;
         }
         //else
-        String colorHS = Integer.toHexString(sRGBColor).toUpperCase();
+        String colorHS = Integer.toHexString(Util.stripAlpha(sRGBColor)).toUpperCase();
         
         return "{minX=" + xMin + ",minY=" + yMin + ",maxX=" + xMax + ",maxY=" + yMax + ",tint=0x" + colorHS + '}';
     }

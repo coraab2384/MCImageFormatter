@@ -1,5 +1,6 @@
 package org.cb2384.mcimageformatter;
 
+import java.awt.Transparency;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 import java.util.Collection;
@@ -25,9 +26,9 @@ public class Util {
     
     static final int TRANSPARENCY_THRESHOLD = 0xD0;
     
-    private static final int ALPHA_DROP_MASK = 0x00FFFFFF;
+    private static final int ALPHA_DROP_MASK = 0x00_FF_FF_FF;
     
-    private static final int ALPHA_PUMP_MASK = 0xFF000000;
+    private static final int ALPHA_PUMP_MASK = 0xFF_00_00_00;
     
     /**
      * Creates a {@link Deque}.
@@ -89,12 +90,26 @@ public class Util {
      * @param sRGBColor the color (as an int) to remove the alpha of
      * @return the input color, but with no alpha.
      */
-    public static int stripAlpha(
+    public static int maskAlpha(
             int sRGBColor
     ) {
-        return (sRGBColor >= TRANSPARENCY_THRESHOLD) ?
-                (sRGBColor & ALPHA_DROP_MASK) | ALPHA_PUMP_MASK :
+        return ((sRGBColor >>> 24) >= TRANSPARENCY_THRESHOLD) ?
+                ((sRGBColor & ALPHA_DROP_MASK) | ALPHA_PUMP_MASK) :
                 0;
+    }
+    
+    /**
+     * Take a color formatted as a 32bit integer,
+     *  either {@link BufferedImage#TYPE_INT_ARGB} or {@link BufferedImage#TYPE_INT_RGB},
+     *  and strip the alpha, that is, force it into {@link BufferedImage#TYPE_INT_RGB}.
+     * Transparency data will be lost.
+     * @param sARGBColor the color (as an int) to remove the alpha of
+     * @return the input color, but with no alpha.
+     */
+    public static int stripAlpha(
+            int sARGBColor
+    ) {
+        return sARGBColor & ALPHA_DROP_MASK;
     }
     
     /**
@@ -113,4 +128,19 @@ public class Util {
         return new BufferedImage(image.getColorModel(), raster, image.isAlphaPremultiplied(), null);
     }
     
+    static BufferedImage correctAlpha(
+            BufferedImage image
+    ) {
+        int height = image.getHeight();
+        int width = image.getWidth();
+        int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
+        
+        for (int i = 0; i < pixels.length; i++) {
+            pixels[i] = maskAlpha(pixels[i]);
+        }
+        
+        BufferedImage resImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        resImage.setRGB(0, 0, width, height, pixels, 0, width);
+        return resImage;
+    }
 }

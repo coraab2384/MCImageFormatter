@@ -4,7 +4,6 @@ import static org.cb2384.mcimageformatter.Util.CELL_SIZE;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
-import java.util.List;
 import java.util.NavigableSet;
 import java.util.Objects;
 
@@ -30,7 +29,7 @@ public class CellBlock {
         assert (image.getWidth() % CELL_SIZE == 0 && image.getHeight() % CELL_SIZE == 0) :
                 "image is not a multiple of 16x16";
         
-        this.image = image;
+        this.image = Util.correctAlpha(image);
         cellSet = setBuilder(image);
     }
     

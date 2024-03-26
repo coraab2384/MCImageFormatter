@@ -101,19 +101,16 @@ public class Main {
             //return;
             throw new RuntimeException();
         }
-        
         String[] usedArgs = Arrays.copyOf(args, 6);
         
-        BufferedImage firstImage;
+        BufferedImage image;
         try {
-            firstImage = loadImage(usedArgs[0]);
+            image = loadImage(usedArgs[0]);
         } catch (IOException IOE) {
             //logger.atError().setCause(IOE).log();
             //return;
             throw new RuntimeException();
         }
-        
-        BufferedImage image = ImageTransformer.correctAlpha(firstImage);
         
         int lightLevel;
         try {

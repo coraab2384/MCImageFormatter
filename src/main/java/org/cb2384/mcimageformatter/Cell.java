@@ -65,6 +65,11 @@ public class Cell
             BufferedImage image
     ) {
         int[] sRGBColorArray = image.getRGB(0, 0, CELL_SIZE, CELL_SIZE, null, 0, CELL_SIZE);
+        
+        for (int i = 0; i < sRGBColorArray.length; i++) {
+            sRGBColorArray[i] = Util.maskAlpha(sRGBColorArray[i]);
+        }
+        
         Deque<Shape> shapeList = horizontalProcess(sRGBColorArray);
         return verticalProcess(shapeList);
     }

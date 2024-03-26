@@ -5,7 +5,6 @@ import static org.cb2384.mcimageformatter.Util.CELL_SIZE_MINUS_ONE;
 
 import java.awt.Color;
 import java.awt.Graphics;
-import java.awt.Transparency;
 import java.awt.image.BufferedImage;
 import java.util.Optional;
 
@@ -39,7 +38,6 @@ class ImageTransformer {
                 changeHeight = true;
             }
         }
-        
         return (changeHeight || changeWidth) ?
                 new CellBlock(resizeImage(image, widthArg, heightArg, args[5])) :
                 CellBlock.build(image);
@@ -92,26 +90,6 @@ class ImageTransformer {
         graphics.drawImage(image, minX, minY, null);
         graphics.dispose();
         return res;
-    }
-    
-    static BufferedImage correctAlpha(
-            BufferedImage image
-    ) {
-        if (image.getTransparency() == Transparency.BITMASK) {
-            return image;
-        }
-        //else
-        int height = image.getHeight();
-        int width = image.getWidth();
-        int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
-        
-        for (int i = 0; i < pixels.length; i++) {
-            pixels[i] = Util.stripAlpha(pixels[i]);
-        }
-        
-        BufferedImage resImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        resImage.setRGB(0, 0, width, height, pixels, 0, width);
-        return resImage;
     }
     
     private static Scalr.Mode chooseMode(
