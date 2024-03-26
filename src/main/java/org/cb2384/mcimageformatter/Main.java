@@ -1,8 +1,5 @@
 package org.cb2384.mcimageformatter;
 
-import static java.util.Arrays.copyOf;
-import static java.util.Optional.ofNullable;
-
 import java.awt.image.BufferedImage;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -10,10 +7,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
 
 import javax.imageio.ImageIO;
 
+import org.checkerframework.checker.index.qual.*;
 import org.checkerframework.checker.nullness.qual.*;
 import org.checkerframework.common.value.qual.*;
 
@@ -72,8 +72,8 @@ public class Main {
     ) {
         for (Cell cell : cells) {
             Set<Shape> shapeSet = cell.seeShapes();
-            for (int x = 0; x < Shape.MAX_DIMENSION; x++) {
-                for (int y = 0; y < Shape.MAX_DIMENSION; y++) {
+            for (int x = 0; x < Util.CELL_SIZE; x++) {
+                for (int y = 0; y < Util.CELL_SIZE; y++) {
                     int count = 0;
                     for (Shape shape : shapeSet) {
                         if ( (x >= shape.getXMin()) && (x < shape.getXMax())
@@ -102,16 +102,18 @@ public class Main {
             throw new RuntimeException();
         }
         
-        String[] usedArgs = copyOf(args, 6);
+        String[] usedArgs = Arrays.copyOf(args, 6);
         
-        BufferedImage image;
+        BufferedImage firstImage;
         try {
-            image = loadImage(usedArgs[0]);
+            firstImage = loadImage(usedArgs[0]);
         } catch (IOException IOE) {
             //logger.atError().setCause(IOE).log();
             //return;
             throw new RuntimeException();
         }
+        
+        BufferedImage image = ImageTransformer.correctAlpha(firstImage);
         
         int lightLevel;
         try {
@@ -122,13 +124,13 @@ public class Main {
             throw new RuntimeException();
         }
         
-        CellBlock imageCells = ImageTransformer.checkImage(usedArgs, image);
+        CellBlock imageCells = ImageTransformer.processImage(usedArgs, image);
         
         // Comment out after verification of success
         assert checkAllPoints(imageCells.seeCells());
         //if (!checkAllPoints(imageCells.seeCells())) {logger.atError().log("CELL FAILURE"); return;}
         
-        String outPath = ofNullable(usedArgs[1]).orElse( System.getProperty("user.home") );
+        String outPath = Optional.ofNullable(usedArgs[1]).orElse( System.getProperty("user.home") );
         try(BufferedWriter bw = prepareFile(outPath)) {
             for (String s : imageCells.export(lightLevel)) {
                 bw.write(s);

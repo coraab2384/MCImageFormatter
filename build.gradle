@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'org.cb2384.mcimageformatter'
-version = '0.3alpha'
+version = '0.4alpha'
 
 repositories {
     mavenCentral()

@@ -1,12 +1,10 @@
 package org.cb2384.mcimageformatter;
 
-import static java.util.Optional.ofNullable;
-
-import java.awt.Color;
-import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 import java.util.Collection;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.NavigableSet;
 import java.util.TreeSet;
 
@@ -25,27 +23,49 @@ public class Util {
     
     static final int CELL_SIZE_MINUS_ONE = CELL_SIZE - 1;
     
-    private static final int ALPHA_SHED_MASK = 0xFFFFFF;
+    static final int TRANSPARENCY_THRESHOLD = 0xD0;
+    
+    private static final int ALPHA_DROP_MASK = 0x00FFFFFF;
+    
+    private static final int ALPHA_PUMP_MASK = 0xFF000000;
     
     /**
-     * Creates a NavigableMap and fills it with any elements of the given collection that might exist.
-     * The collection cannot be null, as its content-type is necessary to tell the set its content type.
-     * However, the contents can be null, even entirely null, if no initial values are desired.
-     * In order for a concept of order to exist,
-     *  Ordered2D must be implemented by the object type of the given collection.
-     * If a traditional {@link Comparable} ordering is desired, consider possibly {@link TreeSet#TreeSet()}.
-     * @param c a Collection that might contain nulls.
-     *          It is here for the method to copy its content type, primarily,
-     *          but non-null parts of the collection will also be copied.
-     * @return a set that has a concept of order.
+     * Creates a {@link Deque}.
+     * This is done here, centrally, to permit easy changing of the implementation.
+     * Current implementation: {@link LinkedList}.
+     * @return an empty Deque
      */
-    public static <T extends Orderable2D<T>> NavigableSet<T> createNavigableSet(
-            Collection<@Nullable T> c
+    public static <T> Deque<T> createDEQueue() {
+        // LinkedList chosen due to removal operations in middle
+        return new LinkedList<>();
+    }
+    
+    /**
+     * Creates a {@link NavigableSet}.
+     * This is done here, centrally, to permit easy changing of the implementation.
+     * In order for a concept of order to exist,
+     *  {@link Orderable2D} must be implemented by the object type of the given collection.
+     * If a traditional {@link Comparable} ordering is desired, consider possibly {@link TreeSet#TreeSet()}?
+     * Current implementation: {@link TreeSet}.
+     * @return an empty set that has a concept of order.
+     */
+    public static <T extends Orderable2D<T>> NavigableSet<T> createNavigableSet() {
+        return new TreeSet<>(T::order2D);
+    }
+    
+    /**
+     * Creates a {@link NavigableSet}, and fills it with the elements of the given Collection.
+     * In order for a concept of order to exist,
+     *  {@link Orderable2D} must be implemented by the object type of the given collection.
+     * If a traditional {@link Comparable} ordering is desired, consider possibly {@link TreeSet#TreeSet()}?
+     * @param c the collection of elements to give to the set.
+     * @return a set that has a concept of order and contains the elements from the given collection.
+     */
+    public static <T extends Orderable2D<T>> NavigableSet<T> copyAsNavSet(
+            Collection<T> c
     ) {
-        NavigableSet<T> res = new TreeSet<>(T::order2D);
-        for (T e : c) {
-            ofNullable(e).ifPresent(res::add);
-        }
+        NavigableSet<T> res = Util.createNavigableSet();
+        res.addAll(c);
         return res;
     }
     
@@ -69,39 +89,12 @@ public class Util {
      * @param sRGBColor the color (as an int) to remove the alpha of
      * @return the input color, but with no alpha.
      */
-    @IntRange(from = 0, to = ALPHA_SHED_MASK)
-    public static int shedAlpha(
+    public static int stripAlpha(
             int sRGBColor
     ) {
-        return sRGBColor & ALPHA_SHED_MASK;
-    }
-    
-    /**
-     * Checks that the RGB values of two {@link BufferedImage#TYPE_INT_ARGB} or {@link BufferedImage#TYPE_INT_RGB}
-     *  int colors are the same.
-     * @param sRGBColorA The first color to compare.
-     * @param sRGBColorB The second color to compare.
-     * @return true if the RGB values are the same, otherwise false.
-     */
-    public static boolean noAlphaColorEquiv(
-            int sRGBColorA,
-            int sRGBColorB
-    ) {
-        return (shedAlpha(sRGBColorA)) == (shedAlpha(sRGBColorB));
-    }
-    
-    /**
-     * Given a color in {@link BufferedImage#TYPE_INT_ARGB} format, check if alpha is 0.
-     * Note that colors in {@link BufferedImage#TYPE_INT_RGB} format do not behave well here,
-     *  and often report that they too are transparent for this function.
-     * For use with 32bit ARGB color with alpha only!
-     * @param sARGBColor an int representation of a {@link BufferedImage#TYPE_INT_ARGB} color.
-     * @return true if the alpha of this color is 0.
-     */
-    public static boolean isFullyTransparent(
-            int sARGBColor
-    ) {
-        return (sARGBColor << 23) == 0;
+        return (sRGBColor >= TRANSPARENCY_THRESHOLD) ?
+                (sRGBColor & ALPHA_DROP_MASK) | ALPHA_PUMP_MASK :
+                0;
     }
     
     /**
@@ -118,39 +111,6 @@ public class Util {
     ) {
         WritableRaster raster = image.copyData( image.getRaster().createCompatibleWritableRaster() );
         return new BufferedImage(image.getColorModel(), raster, image.isAlphaPremultiplied(), null);
-    }
-    
-    
-    static BufferedImage growImage(
-            BufferedImage image,
-            @Positive int height,
-            @Positive int width,
-            boolean changeHeight,
-            boolean changeWidth,
-            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int heightOver,
-            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int widthOver
-    ) {
-        int heightUnder = (changeHeight) ?
-                CELL_SIZE - heightOver :
-                0;
-        int newHeight = height + heightUnder;
-        int widthUnder = (changeWidth) ?
-                CELL_SIZE - widthOver :
-                0;
-        int newWidth = width + widthUnder;
-        
-        BufferedImage res = new BufferedImage(newWidth, newHeight, image.getType());
-        Graphics graphics = res.getGraphics();
-        
-        graphics.setColor( new Color(0, true) );
-        graphics.fillRect(0, 0, newWidth, newHeight);
-        
-        int minX = widthUnder / 2;
-        int minY = newHeight - height - (heightUnder / 2);
-        
-        graphics.drawImage(image, minX, minY, null);
-        graphics.dispose();
-        return res;
     }
     
 }
