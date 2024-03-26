@@ -4,6 +4,7 @@ import static org.cb2384.mcimageformatter.Util.CELL_SIZE;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
+import java.util.List;
 import java.util.NavigableSet;
 import java.util.Objects;
 
