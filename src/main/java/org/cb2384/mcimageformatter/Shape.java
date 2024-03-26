@@ -1,7 +1,11 @@
 package org.cb2384.mcimageformatter;
 
+import static org.cb2384.mcimageformatter.Util.CELL_SIZE;
+import static org.cb2384.mcimageformatter.Util.CELL_SIZE_MINUS_ONE;
+
 import java.awt.Color;
 
+import org.checkerframework.checker.index.qual.*;
 import org.checkerframework.checker.nullness.qual.*;
 import org.checkerframework.common.value.qual.*;
 
@@ -19,16 +23,14 @@ public class Shape
     /**
      * Max size of a shape.
      */
-    public static final int MAX_DIMENSION = Util.CELL_SIZE;
-    static final int MAX_DIM_MINUS_ONE = MAX_DIMENSION - 1;
     
-    private @IntRange(from = 0, to = MAX_DIM_MINUS_ONE) final int xMin;
+    private @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) final int xMin;
     
-    private @IntRange(from = 0, to = MAX_DIMENSION) final int xMax;
+    private @IntRange(from = 0, to = CELL_SIZE) final int xMax;
     
-    private @IntRange(from = 0, to = MAX_DIM_MINUS_ONE) final int yMin;
+    private @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) final int yMin;
     
-    private @IntRange(from = 0, to = MAX_DIMENSION) final int yMax;
+    private @IntRange(from = 0, to = CELL_SIZE) final int yMax;
     
     private final int sRGBColor;
     
@@ -60,30 +62,27 @@ public class Shape
         
         sRGBColor = (color.getAlpha() == 0) ?
                 0 :
-                color.getRGB();
+                Util.stripAlpha( color.getRGB() );
     }
     
     Shape(
-            @IntRange(from = 0, to = MAX_DIM_MINUS_ONE) int xMin,
-            @IntRange(from = 0, to = MAX_DIMENSION) int xMax,
-            @IntRange(from = 0, to = MAX_DIM_MINUS_ONE) int yMin,
-            @IntRange(from = 0, to = MAX_DIMENSION) int yMax,
-            int color_xAARRGGBB
+            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int xMin,
+            @IntRange(from = 0, to = CELL_SIZE) int xMax,
+            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int yMin,
+            @IntRange(from = 0, to = CELL_SIZE) int yMax,
+            int sRGBColor
     ) {
         this.xMin = xMin;
         this.xMax = xMax;
         this.yMin = yMin;
         this.yMax = yMax;
-        
-        sRGBColor = (Util.isFullyTransparent(color_xAARRGGBB)) ?
-                0 :
-                color_xAARRGGBB;
+        this.sRGBColor = sRGBColor;
     }
     
     private static void checkMin(
             int val
     ) {
-        if (val < 0 || val > MAX_DIM_MINUS_ONE) {
+        if (val < 0 || val > CELL_SIZE_MINUS_ONE) {
             throw new IllegalArgumentException("invalid minimum dimension");
         }
     }
@@ -91,7 +90,7 @@ public class Shape
     private static void checkMax(
             int val
     ) {
-        if (val < 1 || val > MAX_DIMENSION) {
+        if (val < 1 || val > CELL_SIZE) {
             throw new IllegalArgumentException("invalid maximum dimension");
         }
     }
@@ -176,10 +175,7 @@ public class Shape
             return null;
         }
         //else
-        // 0x00FFFFFF turns alpha to 0,
-        // which is then ignored by the HexString function stripping leading 0s.
-        int colorNoAlpha = sRGBColor & 0x00FFFFFF;
-        String colorHS = Integer.toHexString(colorNoAlpha).toUpperCase();
+        String colorHS = Integer.toHexString(sRGBColor).toUpperCase();
         
         return "{minX=" + xMin + ",minY=" + yMin + ",maxX=" + xMax + ",maxY=" + yMax + ",tint=0x" + colorHS + '}';
     }

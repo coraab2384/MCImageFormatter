@@ -1,13 +1,17 @@
 package org.cb2384.mcimageformatter;
 
-import static java.util.Optional.ofNullable;
+import static org.cb2384.mcimageformatter.Util.CELL_SIZE;
+import static org.cb2384.mcimageformatter.Util.CELL_SIZE_MINUS_ONE;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
-import java.util.LinkedList;
+import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.NavigableSet;
 
+import org.checkerframework.checker.index.qual.*;
 import org.checkerframework.checker.nullness.qual.*;
 import org.checkerframework.common.value.qual.*;
 
@@ -16,18 +20,14 @@ import org.checkerframework.common.value.qual.*;
  * Each Cell contains its image slice as well as a {@link NavigableSet} of the {@link Shape}s that make it up.
  * The set of Shapes is created as part of the creation of the Cell object.
  * Each Cell also contains a {@link Point} that indicates which 'tile' of the larger image it is.
- * A Cell is {@link Cell#DIMENSION} == {@link Util#CELL_SIZE} == 16 pixels square.
+ * A Cell is {@link Util#CELL_SIZE} pixels square.
  */
 public class Cell
         implements Orderable2D<Cell> {
     
-    static final int DIMENSION = Util.CELL_SIZE;
+    private static final int CELL_BLOCK_SIZE = CELL_SIZE + CELL_SIZE;
     
-    private static final int DIM_MINUS_ONE = DIMENSION - 1;
-    
-    private static final int PIXEL_COUNT = DIMENSION * DIMENSION;
-    
-    private static final int PIXEL_COUNT_MINUS_ONE = PIXEL_COUNT - 1;
+    private static final int CELL_BLOCK_SIZE_MINUS_ONE = CELL_BLOCK_SIZE - 1;
     
     private final BufferedImage image;
     
@@ -39,7 +39,7 @@ public class Cell
             BufferedImage image,
             Point coordinates
     ) {
-        if (image.getHeight() != DIMENSION || image.getWidth() != DIMENSION) {
+        if (image.getHeight() != CELL_SIZE || image.getWidth() != CELL_SIZE) {
             throw new IllegalArgumentException("A cell's image must be 16x16");
         }
         //else
@@ -53,7 +53,7 @@ public class Cell
             Point coordinates,
             BufferedImage image
     ) {
-        assert (image.getHeight() == DIMENSION && image.getWidth() == DIMENSION) : "Cell must be 16x16";
+        assert (image.getHeight() == CELL_SIZE && image.getWidth() == CELL_SIZE) : "Cell must be 16x16";
         
         this.image = image;
         this.coordinates = coordinates;
@@ -64,10 +64,9 @@ public class Cell
     private static NavigableSet<Shape> setBuilder(
             BufferedImage image
     ) {
-        int[] sRGBColorArray = image.getRGB(0, 0, DIMENSION, DIMENSION, null, 0, DIMENSION);
-        List<Shape> shapeList = horizontalProcess(sRGBColorArray);
-        verticalProcess(shapeList);
-        return Util.createNavigableSet(shapeList);
+        int[] sRGBColorArray = image.getRGB(0, 0, CELL_SIZE, CELL_SIZE, null, 0, CELL_SIZE);
+        Deque<Shape> shapeList = horizontalProcess(sRGBColorArray);
+        return verticalProcess(shapeList);
     }
     
     public BufferedImage seeImage() {
@@ -79,20 +78,20 @@ public class Cell
     }
     
     public int getRGB(
-            @IntRange(from = 0, to = DIM_MINUS_ONE) int x,
-            @IntRange(from = 0, to = DIM_MINUS_ONE) int y
+            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int x,
+            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int y
     ) {
         return image.getRGB(x, y);
     }
     
     public NavigableSet<Shape> seeShapes() {
-        return Util.createNavigableSet(shapeSet);
+        return Util.copyAsNavSet(shapeSet);
     }
     
     public int order2D(
             Cell that
     ) {
-        return Orderable2D.fromTopLeft(coordinates.x, coordinates.y, that.coordinates.x, that.coordinates.y);
+        return Orderable2D.fromBottomLeft(coordinates.x, coordinates.y, that.coordinates.x, that.coordinates.y);
     }
     
     /**
@@ -102,94 +101,106 @@ public class Cell
      * @throws IllegalArgumentException if not (0 <= lightlevel <= 8)
      * @see Shape#export()
      */
+    @Nullable
     public String export(
             int lightLevel
     ) {
         Util.lightLevelVerify(lightLevel);
+        String closeBrace = "}";
         
-        StringBuilder resBuilder = new StringBuilder("{listShape={");
+        List<String> exportedShapeList = shapeSet.stream()
+                .map(Shape::export)
+                .filter(Objects::nonNull)
+                .toList();
         
-        for (Shape shape : shapeSet) {
-            // Get the next shape's export, and append it if it isn't null.
-            ofNullable( shape.export() )
-                    .ifPresent(s -> resBuilder.append(s).append(','));
+        if (exportedShapeList.isEmpty()) {
+            return null;
         }
-        resBuilder.deleteCharAt(resBuilder.length() - 1);
+        //else
         
-        resBuilder.append("},tooltip=")
+        StringBuilder resBuilder = new StringBuilder("{tooltip=")
                 .append(coordString())
                 .append(",lightLevel=")
                 .append(lightLevel)
-                .append('}');
-        return resBuilder.toString();
+                .append(",listShape={");
+        
+        for (String exportString : exportedShapeList) {
+            resBuilder.append(exportString).append(',');
+        }
+        
+        int currLen = resBuilder.length();
+        resBuilder.replace(currLen - 1, currLen, closeBrace);
+        
+        return resBuilder + closeBrace;
     }
     
     private String coordString() {
-        return "\"" + coordinates.x + 'x' + coordinates.y + "\"";
+        return "\"x: " + coordinates.x + ", y: " + coordinates.y + "\"";
     }
     
-    private static List<Shape> horizontalProcess(
-            int@ArrayLen(PIXEL_COUNT)[] sRGBColorArray
+    private static Deque<Shape> horizontalProcess(
+            int@ArrayLen(CELL_BLOCK_SIZE)[] sRGBColorArray
     ) {
-        List<Shape> shapeList = new LinkedList<>();
-        for (int y = 0; y < DIMENSION; y++) {
-            for (int x = 0; x < DIMENSION;) {
+        Deque<Shape> shapeDeque = Util.createDEQueue();
+        for (int y = 0; y < CELL_SIZE; y++) {
+            for (int x = 0; x < CELL_SIZE;) {
                 int colorShape = sRGBColorArray[buildIndex(x, y)];
                 // Increment x here instead of the end, since we will use the incremented value within this iteration.
                 int xMin = x++;
                 
-                for (; x < DIMENSION; x++) {
-                    if ( !Util.noAlphaColorEquiv(sRGBColorArray[buildIndex(x, y)], colorShape) ) {
+                for (; x < CELL_SIZE; x++) {
+                    if ( !(sRGBColorArray[buildIndex(x, y)] == colorShape) ) {
                         break;
                     }
                 }
                 
-                int yMinInv = DIM_MINUS_ONE - y;
-                int yMaxInv = DIMENSION - y;
-                shapeList.add( new Shape(xMin, x, yMinInv, yMaxInv, colorShape) );
+                int yMinInv = CELL_SIZE_MINUS_ONE - y;
+                int yMaxInv = CELL_SIZE - y;
+                shapeDeque.addFirst( new Shape(xMin, x, yMinInv, yMaxInv, colorShape) );
             }
         }
-        return shapeList;
+        return shapeDeque;
     }
     
     
-    @IntRange(from = 0, to = PIXEL_COUNT_MINUS_ONE)
+    @IntRange(from = 0, to = CELL_BLOCK_SIZE_MINUS_ONE)
     private static int buildIndex(
-            @IntRange(from = 0, to = DIM_MINUS_ONE) int x,
-            @IntRange(from = 0, to = DIM_MINUS_ONE) int y
+            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int x,
+            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int y
     ) {
-        return y * DIMENSION + x;
+        return y * CELL_SIZE + x;
     }
     
-    private static void verticalProcess(
-            List<Shape> shapeListToMutate
+    private static NavigableSet<Shape> verticalProcess(
+            Deque<Shape> shapeDeque
     ) {
-        for (int i = shapeListToMutate.size() - 1; i >= 0;) {
-            Shape thisShape = shapeListToMutate.get(i--);
+        NavigableSet<Shape> shapeSet = Util.createNavigableSet();
+        while (!shapeDeque.isEmpty()) {
+            Shape thisShape = shapeDeque.removeFirst();
             int yNext = thisShape.getYMax();
             int xMin = thisShape.getXMin();
             int xMax = thisShape.getXMax();
             int color = thisShape.getColor();
-            
-            for (int j = i; j >= 0; j--) {
-                Shape thatShape = shapeListToMutate.get(j);
+            Iterator<Shape> remainingShapes = shapeDeque.iterator();
+            while (remainingShapes.hasNext()) {
+                Shape thatShape = remainingShapes.next();
                 int yMid = thatShape.getYMin();
                 if (yMid > yNext) {
                     break;
                 }
                 //else
                 if ((yMid == yNext) && (thatShape.getXMin() == xMin) && (thatShape.getXMax() == xMax)
-                        && Util.noAlphaColorEquiv(thatShape.getColor(), color)) {
+                        && (thatShape.getColor() == color) ) {
                     
                     int yMax = thatShape.getYMax();
                     thisShape = new Shape(xMin, xMax, thisShape.getYMin(), yMax, color);
                     
-                    shapeListToMutate.set(1 + i--, thisShape);
-                    shapeListToMutate.remove(j);
-                    
+                    remainingShapes.remove();
                     yNext = yMax;
                 }
             }
+            shapeSet.add(thisShape);
         }
+        return shapeSet;
     }
 }

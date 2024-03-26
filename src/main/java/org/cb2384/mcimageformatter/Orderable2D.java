@@ -1,10 +1,11 @@
 package org.cb2384.mcimageformatter;
 
-import static java.util.Optional.ofNullable;
-
 import java.awt.image.BufferedImage;
+import java.util.Optional;
 
+import org.checkerframework.checker.index.qual.*;
 import org.checkerframework.checker.nullness.qual.*;
+import org.checkerframework.common.value.qual.*;
 
 /**
  * Provides a concept of ordering 2D points.
@@ -61,7 +62,7 @@ public interface Orderable2D<T> {
             int thatY,
             @Nullable AscendFrom type
     ) {
-        AscendFrom typeFlag = ofNullable(type).orElse(DEFAULT);
+        AscendFrom typeFlag = Optional.ofNullable(type).orElse(DEFAULT);
         return switch (typeFlag) {
             case LOW_Y_LOW_X -> fromBottomLeft(thisX, thisY, thatX, thatY);
             case HIGH_Y_LOW_X -> fromTopLeft(thisX, thisY, thatX, thatY);

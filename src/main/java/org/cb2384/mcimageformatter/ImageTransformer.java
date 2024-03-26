@@ -1,20 +1,27 @@
 package org.cb2384.mcimageformatter;
 
-import static java.util.Optional.ofNullable;
+import static org.cb2384.mcimageformatter.Util.CELL_SIZE;
+import static org.cb2384.mcimageformatter.Util.CELL_SIZE_MINUS_ONE;
 
-import static org.imgscalr.Scalr.*;
-
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Transparency;
 import java.awt.image.BufferedImage;
+import java.util.Optional;
 
+import org.checkerframework.checker.index.qual.*;
 import org.checkerframework.checker.nullness.qual.*;
 import org.checkerframework.common.value.qual.*;
 
+import org.imgscalr.Scalr;
+
 class ImageTransformer {
     
-    static CellBlock checkImage(
-            @ArrayLen(5) String[] args,
+    static CellBlock processImage(
+            @ArrayLen(6) String[] args,
             BufferedImage image
     ) {
+        
         boolean changeWidth = false;
         int widthArg = 0;
         if (args[3] != null) {
@@ -38,33 +45,102 @@ class ImageTransformer {
                 CellBlock.build(image);
     }
     
-    private static Mode chooseMode(
+    static BufferedImage padImageIfNeeded(
+            BufferedImage image
+    ) {
+        int height = image.getHeight();
+        int width = image.getWidth();
+        
+        int heightOver = height % CELL_SIZE;
+        int widthOver = width % CELL_SIZE;
+        
+        boolean badHeight = heightOver != 0;
+        boolean badWidth = widthOver != 0;
+        
+        return (badHeight || badWidth) ?
+                growImage(image, height, width, badHeight, badWidth, heightOver, widthOver) :
+                image;
+    }
+    
+    static BufferedImage growImage(
+            BufferedImage image,
+            @Positive int height,
+            @Positive int width,
+            boolean changeHeight,
+            boolean changeWidth,
+            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int heightOver,
+            @IntRange(from = 0, to = CELL_SIZE_MINUS_ONE) int widthOver
+    ) {
+        int heightUnder = (changeHeight) ?
+                CELL_SIZE - heightOver :
+                0;
+        int newHeight = height + heightUnder;
+        int widthUnder = (changeWidth) ?
+                CELL_SIZE - widthOver :
+                0;
+        int newWidth = width + widthUnder;
+        
+        BufferedImage res = new BufferedImage(newWidth, newHeight, image.getType());
+        Graphics graphics = res.getGraphics();
+        
+        graphics.setColor( new Color(0, true) );
+        graphics.fillRect(0, 0, newWidth, newHeight);
+        
+        int minX = widthUnder / 2;
+        int minY = newHeight - height - (heightUnder / 2);
+        
+        graphics.drawImage(image, minX, minY, null);
+        graphics.dispose();
+        return res;
+    }
+    
+    static BufferedImage correctAlpha(
+            BufferedImage image
+    ) {
+        if (image.getTransparency() == Transparency.BITMASK) {
+            return image;
+        }
+        //else
+        int height = image.getHeight();
+        int width = image.getWidth();
+        int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
+        
+        for (int i = 0; i < pixels.length; i++) {
+            pixels[i] = Util.stripAlpha(pixels[i]);
+        }
+        
+        BufferedImage resImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        resImage.setRGB(0, 0, width, height, pixels, 0, width);
+        return resImage;
+    }
+    
+    private static Scalr.Mode chooseMode(
             int widthArg,
             int heightArg
     ) {
         if (widthArg > 0) {
             if (heightArg > 0) {
-                return Mode.FIT_EXACT;
+                return Scalr.Mode.FIT_EXACT;
             }
             //else
-            return Mode.FIT_TO_WIDTH;
+            return Scalr.Mode.FIT_TO_WIDTH;
         }
         //else
         if (heightArg > 0) {
-            return Mode.FIT_TO_HEIGHT;
+            return Scalr.Mode.FIT_TO_HEIGHT;
         }
         throw new IllegalArgumentException("No resizing options found");
     }
     
-    private static Method parseMethod(
+    private static Scalr.Method parseMethod(
             @Nullable String resizeAlgo
     ) {
-        String methodString = ofNullable(resizeAlgo).orElse("0");
+        String methodString = Optional.ofNullable(resizeAlgo).orElse("0");
         if ((methodString.length() == 1) && methodString.matches("[01234]")) {
-            return Method.values()[Integer.parseInt(methodString)];
+            return Scalr.Method.values()[Integer.parseInt(methodString)];
         }
         //else
-        return Method.valueOf(methodString.toUpperCase());
+        return Scalr.Method.valueOf(methodString.toUpperCase());
     }
     
     static BufferedImage resizeImage(
@@ -73,9 +149,10 @@ class ImageTransformer {
             int heightArg,
             @Nullable String resizeAlgo
     ) {
-        Mode scaleMode = chooseMode(widthArg, heightArg);
-        Method scaleMethod = parseMethod(resizeAlgo);
-        return resize(image, scaleMethod, scaleMode, widthArg, heightArg);
+        Scalr.Mode scaleMode = chooseMode(widthArg, heightArg);
+        Scalr.Method scaleMethod = parseMethod(resizeAlgo);
+        BufferedImage resImage = Scalr.resize(image, scaleMethod, scaleMode, widthArg, heightArg);
+        return padImageIfNeeded(resImage);
     }
     
 }

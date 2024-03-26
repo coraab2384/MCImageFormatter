@@ -1,21 +1,24 @@
 package org.cb2384.mcimageformatter;
 
-import static java.util.Arrays.asList;
+import static org.cb2384.mcimageformatter.Util.CELL_SIZE;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.NavigableSet;
+import java.util.Objects;
+
+import org.checkerframework.checker.index.qual.*;
+import org.checkerframework.checker.nullness.qual.*;
+import org.checkerframework.common.value.qual.*;
 
 /**
  * An {@link BufferedImage}, and a {@link NavigableSet} of {@link Cell}s from which the image is composed.
  * Each cell is a square that is (currently, and likely to stay)
- *  {@link Util#CELL_SIZE} == {@link Cell#DIMENSION} == 16 pixels per side.
+ *  {@link Util#CELL_SIZE} == 16 pixels per side.
  * When a CellBlock is constructed, the Cells are automatically created.
  */
 public class CellBlock {
-    
-    private static final int CELL_SLICE_SIZE = Util.CELL_SIZE;
     
     private final BufferedImage image;
     
@@ -24,7 +27,7 @@ public class CellBlock {
     CellBlock(
             BufferedImage image
     ) {
-        assert (image.getWidth() % CELL_SLICE_SIZE == 0 && image.getHeight() % CELL_SLICE_SIZE == 0) :
+        assert (image.getWidth() % CELL_SIZE == 0 && image.getHeight() % CELL_SIZE == 0) :
                 "image is not a multiple of 16x16";
         
         this.image = image;
@@ -40,38 +43,25 @@ public class CellBlock {
     public static CellBlock build(
             BufferedImage image
     ) {
-        int height = image.getHeight();
-        int width = image.getWidth();
-        
-        int heightOver = height % CELL_SLICE_SIZE;
-        int widthOver = width % CELL_SLICE_SIZE;
-        
-        boolean badHeight = heightOver != 0;
-        boolean badWidth = widthOver != 0;
-        
-        if (badHeight || badWidth) {
-            image = Util.growImage(image, height, width, badHeight, badWidth, heightOver, widthOver);
-        }
-        return new CellBlock(image);
+        return new CellBlock( ImageTransformer.padImageIfNeeded(image) );
     }
     
     private static NavigableSet<Cell> setBuilder(
             BufferedImage image
     ) {
-        int cellsHeight = image.getHeight() / CELL_SLICE_SIZE;
-        int cellsWidth = image.getWidth() / CELL_SLICE_SIZE;
+        int cellsHeight = image.getHeight() / CELL_SIZE;
+        int cellsWidth = image.getWidth() / CELL_SIZE;
         
-        NavigableSet<Cell> cellSet = Util.createNavigableSet( asList(new Cell[]{null}) );
-        for (int y = cellsHeight; y > 0;) {
-            int yPlusOne = y--;
+        NavigableSet<Cell> cellSet = Util.createNavigableSet();
+        for (int y = cellsHeight - 1; y >= 0; y--) {
+            int yCoord = cellsHeight - y;
             
             for (int x = 0; x < cellsWidth;) {
-                BufferedImage subimage = image.getSubimage(
-                        x * CELL_SLICE_SIZE, y * CELL_SLICE_SIZE,
-                        CELL_SLICE_SIZE, CELL_SLICE_SIZE );
+                BufferedImage subimage = image.getSubimage(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
                 // Points are defined from 1, not 0.
                 // x will need to be incremented anyway, so do that here
-                Point point = new Point(++x, yPlusOne);
+                
+                Point point = new Point(++x, yCoord);
                 cellSet.add( new Cell(point, subimage) );
             }
         }
@@ -91,7 +81,7 @@ public class CellBlock {
      * @return a copy of the contained cellSet.
      */
     public NavigableSet<Cell> seeCells() {
-        return Util.createNavigableSet(cellSet);
+        return Util.copyAsNavSet(cellSet);
     }
     
     /**
@@ -99,12 +89,14 @@ public class CellBlock {
      * @param lightLevel The light level to give to the Cells when they are exported.
      * @return a String for which each line is the output of
      *         {@link Cell#export(int)} for each contained Cell, with the given lightLevel.
+     * @see Cell#export
      */
-    public List<String> export(
+    public Iterable<String> export(
             int lightLevel
     ) {
         return cellSet.stream()
                 .map(c -> c.export(lightLevel))
+                .filter(Objects::nonNull)
                 .toList();
     }
     
