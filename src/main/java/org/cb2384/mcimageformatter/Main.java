@@ -2,16 +2,12 @@ package org.cb2384.mcimageformatter;
 
 import java.awt.image.BufferedImage;
 import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
-
-import javax.imageio.ImageIO;
 
 import org.checkerframework.checker.index.qual.*;
 import org.checkerframework.checker.nullness.qual.*;
@@ -25,17 +21,6 @@ import org.slf4j.LoggerFactory;
 public class Main {
     
     private static final String DEFAULT_OUTPUT_NAME = "MCIFout.lc3p";
-    
-    private static BufferedImage loadImage(
-            String path
-    ) throws IOException {
-        File f = new File(path);
-        if (!f.exists()) {
-            throw new FileNotFoundException("File does not exist");
-        }
-        //else
-        return ImageIO.read(f);
-    }
     
     private static BufferedWriter prepareFile(
             String path
@@ -56,15 +41,15 @@ public class Main {
         return Files.newBufferedWriter(p);
     }
     
-    @IntRange(from = 0, to = 8)
-    private static int parseLight(
-            String lightString
-    ) throws IllegalArgumentException {
-        int lightLevel = (lightString != null) ?
-                Integer.parseInt(lightString) :
-                Util.DEFAULT_LIGHT_LEVEL;
-        Util.lightLevelVerify(lightLevel);
-        return lightLevel;
+    private static boolean parseEmptySetting(
+            @Nullable String emptySetting
+    ) {
+        if (emptySetting == null) {
+            return false;
+        }
+        //else
+        String emptySettingLower = emptySetting.toLowerCase();
+        return !emptySettingLower.matches("0|n|f|false");
     }
     
     private static boolean checkAllPoints(
@@ -105,18 +90,9 @@ public class Main {
         
         BufferedImage image;
         try {
-            image = loadImage(usedArgs[0]);
+            image = ImageTransformer.loadImage(usedArgs[0]);
         } catch (IOException IOE) {
             //logger.atError().setCause(IOE).log();
-            //return;
-            throw new RuntimeException();
-        }
-        
-        int lightLevel;
-        try {
-            lightLevel = parseLight(usedArgs[2]);
-        } catch (IllegalArgumentException IAE) {
-            //logger.atError().setCause(IAE).log();
             //return;
             throw new RuntimeException();
         }
@@ -127,9 +103,11 @@ public class Main {
         assert checkAllPoints(imageCells.seeCells());
         //if (!checkAllPoints(imageCells.seeCells())) {logger.atError().log("CELL FAILURE"); return;}
         
+        boolean usePlaceholdersForEmptyCells = parseEmptySetting(usedArgs[2]);
+        
         String outPath = Optional.ofNullable(usedArgs[1]).orElse( System.getProperty("user.home") );
         try(BufferedWriter bw = prepareFile(outPath)) {
-            for (String s : imageCells.export(lightLevel)) {
+            for (String s : imageCells.export(usePlaceholdersForEmptyCells)) {
                 bw.write(s);
                 bw.newLine();
             }

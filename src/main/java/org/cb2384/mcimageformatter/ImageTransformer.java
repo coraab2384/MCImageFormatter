@@ -6,7 +6,12 @@ import static org.cb2384.mcimageformatter.Util.CELL_SIZE_MINUS_ONE;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Optional;
+
+import javax.imageio.ImageIO;
 
 import org.checkerframework.checker.index.qual.*;
 import org.checkerframework.checker.nullness.qual.*;
@@ -15,6 +20,17 @@ import org.checkerframework.common.value.qual.*;
 import org.imgscalr.Scalr;
 
 class ImageTransformer {
+    
+    static BufferedImage loadImage(
+            String path
+    ) throws IOException {
+        File f = new File(path);
+        if (!f.exists()) {
+            throw new FileNotFoundException("File does not exist");
+        }
+        //else
+        return ImageIO.read(f);
+    }
     
     static CellBlock processImage(
             @ArrayLen(6) String[] args,

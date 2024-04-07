@@ -85,16 +85,17 @@ public class CellBlock {
     
     /**
      * Exports each {@link Cell} in this CellBlock as one line of a large {@link String}.
-     * @param lightLevel The light level to give to the Cells when they are exported.
+     * @param usePlaceholderForNull determines if empty cells are simply not reported on,
+     *                              or if they use a static placeholder
      * @return a String for which each line is the output of
-     *         {@link Cell#export(int)} for each contained Cell, with the given lightLevel.
+     *         {@link Cell#export(boolean)} for each contained Cell, with the given lightLevel.
      * @see Cell#export
      */
     public Iterable<String> export(
-            int lightLevel
+            boolean usePlaceholderForNull
     ) {
         return cellSet.stream()
-                .map(c -> c.export(lightLevel))
+                .map(c -> c.export(usePlaceholderForNull))
                 .filter(Objects::nonNull)
                 .toList();
     }

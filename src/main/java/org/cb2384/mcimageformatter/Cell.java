@@ -5,6 +5,7 @@ import static org.cb2384.mcimageformatter.Util.CELL_SIZE_MINUS_ONE;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -28,6 +29,17 @@ public class Cell
     private static final int CELL_BLOCK_SIZE = CELL_SIZE + CELL_SIZE;
     
     private static final int CELL_BLOCK_SIZE_MINUS_ONE = CELL_BLOCK_SIZE - 1;
+    
+    private static final BufferedImage EMPTY_PLACEHOLDER_EXPORT;
+    
+    static {
+        BufferedImage tempImg = null;
+        try {
+            String path = Main.class.getResource("/resources/emptyCell.png").getPath();
+            tempImg = ImageTransformer.loadImage(path);
+        } catch (NullPointerException | IOException ignored) {}
+        EMPTY_PLACEHOLDER_EXPORT = tempImg;
+    }
     
     private final BufferedImage image;
     
@@ -101,16 +113,15 @@ public class Cell
     
     /**
      *
-     * @param lightLevel the light level, between 0 and 8 inclusive
+     * @param usePlaceholderForNull determines whether to return null or a placeholder image if the cell is empty
      * @return the export String
-     * @throws IllegalArgumentException if not (0 <= lightlevel <= 8)
      * @see Shape#export()
      */
     @Nullable
     public String export(
-            int lightLevel
+            boolean usePlaceholderForNull
     ) {
-        Util.lightLevelVerify(lightLevel);
+        //Util.lightLevelVerify(lightLevel);
         String closeBrace = "}";
         
         List<String> exportedShapeList = shapeSet.stream()
@@ -119,14 +130,16 @@ public class Cell
                 .toList();
         
         if (exportedShapeList.isEmpty()) {
-            return null;
+            return usePlaceholderForNull ?
+                    new Cell(coordinates, EMPTY_PLACEHOLDER_EXPORT).export(false) :
+                    null;
         }
         //else
         
         StringBuilder resBuilder = new StringBuilder("{tooltip=")
                 .append(coordString())
-                .append(",lightLevel=")
-                .append(lightLevel)
+                //.append(",lightLevel=")
+                //.append(lightLevel)
                 .append(",listShape={");
         
         for (String exportString : exportedShapeList) {

@@ -1,6 +1,5 @@
 package org.cb2384.mcimageformatter;
 
-import java.awt.Transparency;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 import java.util.Collection;
@@ -94,7 +93,7 @@ public class Util {
             int sRGBColor
     ) {
         return ((sRGBColor >>> 24) >= TRANSPARENCY_THRESHOLD) ?
-                ((sRGBColor & ALPHA_DROP_MASK) | ALPHA_PUMP_MASK) :
+                (sRGBColor | ALPHA_PUMP_MASK) :
                 0;
     }
     
